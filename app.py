@@ -106,7 +106,7 @@ if not st.session_state.get("authenticated", False):
             else:
                 st.error("Неверное кодовое слово.")
 
-        st.caption("Подходит имя из раздела \"Семья и категории\" или `Kirill`.")
+        st.caption("Подходит имя из раздела \"Семья и категории\".")
 
     st.stop()
 
@@ -291,7 +291,7 @@ if page == "Скан чека":
         )
 
         st.checkbox(
-            "Сохранить, даже если уже есть чек с тем же магазином и той же минутой покупки",
+            "Сохранить, даже если уже есть чек с той же минутой покупки",
             key="dup_ok_scan",
         )
 
@@ -317,12 +317,10 @@ if page == "Скан чека":
                 st.warning("Добавьте хотя бы одну позицию с названием.")
             else:
                 allow_dup = bool(st.session_state.get("dup_ok_scan"))
-                dup = None if allow_dup else db.find_duplicate_receipt(
-                    store, purchased_at
-                )
+                dup = None if allow_dup else db.find_duplicate_receipt(purchased_at)
                 if dup:
                     st.error(
-                        "Похожий чек уже есть в базе (тот же магазин и та же минута покупки). "
+                        "Похожий чек уже есть в базе (та же минута покупки). "
                         f"Чек №{dup['id']}: {dup['store_name']}, {dup['purchased_at']}, "
                         f"{dup['total_amount']:.2f} {dup['currency']}. "
                         "Если это другой чек, отметьте галочку ниже и сохраните снова."
@@ -392,7 +390,7 @@ if page == "Ручной ввод":
     )
 
     st.checkbox(
-        "Сохранить, даже если уже есть чек с тем же магазином и той же минутой покупки",
+        "Сохранить, даже если уже есть чек с той же минутой покупки",
         key="dup_ok_manual",
     )
 
@@ -420,10 +418,10 @@ if page == "Ручной ввод":
             st.warning("Добавьте позиции с названиями.")
         else:
             allow_dup = bool(st.session_state.get("dup_ok_manual"))
-            dup = None if allow_dup else db.find_duplicate_receipt(m_store, m_dt)
+            dup = None if allow_dup else db.find_duplicate_receipt(m_dt)
             if dup:
                 st.error(
-                    "Похожий чек уже есть в базе (тот же магазин и та же минута покупки). "
+                    "Похожий чек уже есть в базе (та же минута покупки). "
                     f"Чек №{dup['id']}: {dup['store_name']}, {dup['purchased_at']}, "
                     f"{dup['total_amount']:.2f} {dup['currency']}. "
                     "Если это другой чек, отметьте галочку выше и сохраните снова."
