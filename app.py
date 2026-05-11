@@ -234,6 +234,11 @@ with tab_scan:
             key="scan_editor",
         )
 
+        st.checkbox(
+            "Сохранить, даже если уже есть чек с тем же магазином и той же минутой покупки",
+            key="dup_ok_scan",
+        )
+
         if st.button("Сохранить чек в базу", type="primary"):
             out_lines = []
             for _, r in edited.iterrows():
@@ -255,20 +260,33 @@ with tab_scan:
             if not out_lines:
                 st.warning("Добавьте хотя бы одну позицию с названием.")
             else:
-                mid = member_options[member_name]
-                db.insert_receipt(
-                    store_name=store,
-                    purchased_at=purchased_at,
-                    total_amount=total_amount,
-                    currency=currency,
-                    member_id=mid,
-                    lines=out_lines,
-                    notes=notes or None,
-                    source="openai_scan",
+                allow_dup = bool(st.session_state.get("dup_ok_scan"))
+                dup = None if allow_dup else db.find_duplicate_receipt(
+                    store, purchased_at
                 )
-                del st.session_state["scan_parsed"]
-                st.success("Чек сохранён.")
-                st.rerun()
+                if dup:
+                    st.error(
+                        "Похожий чек уже есть в базе (тот же магазин и та же минута покупки). "
+                        f"Чек №{dup['id']}: {dup['store_name']}, {dup['purchased_at']}, "
+                        f"{dup['total_amount']:.2f} {dup['currency']}. "
+                        "Если это другой чек, отметьте галочку ниже и сохраните снова."
+                    )
+                else:
+                    mid = member_options[member_name]
+                    db.insert_receipt(
+                        store_name=store,
+                        purchased_at=purchased_at,
+                        total_amount=total_amount,
+                        currency=currency,
+                        member_id=mid,
+                        lines=out_lines,
+                        notes=notes or None,
+                        source="openai_scan",
+                    )
+                    st.session_state["dup_ok_scan"] = False
+                    del st.session_state["scan_parsed"]
+                    st.success("Чек сохранён.")
+                    st.rerun()
 
 # ——— Ручной ввод ———
 with tab_manual:
@@ -318,6 +336,11 @@ with tab_manual:
         key="manual_editor",
     )
 
+    st.checkbox(
+        "Сохранить, даже если уже есть чек с тем же магазином и той же минутой покупки",
+        key="dup_ok_manual",
+    )
+
     if st.button("Сохранить ручной чек", type="primary"):
         lines_out = []
         for _, r in md.iterrows():
@@ -341,27 +364,38 @@ with tab_manual:
         elif not lines_out:
             st.warning("Добавьте позиции с названиями.")
         else:
-            db.insert_receipt(
-                store_name=m_store,
-                purchased_at=m_dt,
-                total_amount=m_total,
-                currency=m_currency,
-                member_id=member_options[m_member],
-                lines=lines_out,
-                notes=m_notes or None,
-                source="manual",
-            )
-            st.session_state["manual_rows"] = [
-                {
-                    "product_name": "",
-                    "quantity": 1.0,
-                    "unit_price": None,
-                    "line_total": 0.0,
-                    "category": "",
-                }
-            ]
-            st.success("Сохранено.")
-            st.rerun()
+            allow_dup = bool(st.session_state.get("dup_ok_manual"))
+            dup = None if allow_dup else db.find_duplicate_receipt(m_store, m_dt)
+            if dup:
+                st.error(
+                    "Похожий чек уже есть в базе (тот же магазин и та же минута покупки). "
+                    f"Чек №{dup['id']}: {dup['store_name']}, {dup['purchased_at']}, "
+                    f"{dup['total_amount']:.2f} {dup['currency']}. "
+                    "Если это другой чек, отметьте галочку выше и сохраните снова."
+                )
+            else:
+                db.insert_receipt(
+                    store_name=m_store,
+                    purchased_at=m_dt,
+                    total_amount=m_total,
+                    currency=m_currency,
+                    member_id=member_options[m_member],
+                    lines=lines_out,
+                    notes=m_notes or None,
+                    source="manual",
+                )
+                st.session_state["dup_ok_manual"] = False
+                st.session_state["manual_rows"] = [
+                    {
+                        "product_name": "",
+                        "quantity": 1.0,
+                        "unit_price": None,
+                        "line_total": 0.0,
+                        "category": "",
+                    }
+                ]
+                st.success("Сохранено.")
+                st.rerun()
 
 # ——— Журнал ———
 with tab_journal:

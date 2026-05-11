@@ -132,6 +132,37 @@ def add_category(name: str) -> None:
         )
 
 
+def find_duplicate_receipt(
+    store_name: str,
+    purchased_at: datetime,
+    *,
+    exclude_receipt_id: int | None = None,
+) -> dict[str, Any] | None:
+    """
+    Дубликат: тот же магазин (без учёта регистра) и та же минута даты/времени покупки.
+    Секунды не учитываются.
+    """
+    iso = purchased_at.replace(microsecond=0).isoformat(sep=" ")
+    minute_key = iso[:16]
+    store_norm = store_name.strip().lower()
+
+    sql = """
+        SELECT id, store_name, purchased_at, total_amount, currency
+        FROM receipts
+        WHERE lower(trim(store_name)) = ?
+          AND substr(replace(replace(purchased_at, 'T', ' '), 't', ' '), 1, 16) = ?
+    """
+    params: list[Any] = [store_norm, minute_key]
+    if exclude_receipt_id is not None:
+        sql += " AND id != ?"
+        params.append(exclude_receipt_id)
+
+    sql += " LIMIT 1"
+    with get_conn() as conn:
+        row = conn.execute(sql, params).fetchone()
+        return dict(row) if row else None
+
+
 def insert_receipt(
     store_name: str,
     purchased_at: datetime,
