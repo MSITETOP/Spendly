@@ -331,7 +331,6 @@ if page == "Скан чека":
                         notes=notes or None,
                         source="openai_scan",
                     )
-                    st.session_state["dup_ok_scan"] = False
                     del st.session_state["scan_parsed"]
                     st.success("Чек сохранён.")
                     st.rerun()
@@ -432,7 +431,6 @@ if page == "Ручной ввод":
                     notes=m_notes or None,
                     source="manual",
                 )
-                st.session_state["dup_ok_manual"] = False
                 st.session_state["manual_rows"] = [
                     {
                         "product_name": "",
