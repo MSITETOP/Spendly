@@ -13,6 +13,10 @@ SYSTEM = """Ты извлекаешь данные с фото или скана
 Верни строго один JSON-объект без markdown по схеме ниже. Числа — десятичные, разделитель точка.
 Если дата/время неясны, оцени по чеку; если совсем нет — используй null для purchased_at.
 
+Для КАЖДОЙ товарной позиции обязательно укажи поле category: выбери одну категорию из списка,
+который будет передан в пользовательском сообщении. Если ни одна не подходит — используй
+последнюю категорию из списка (обычно «Другое») или буквально «Другое», если она есть в списке.
+
 Схема:
 {
   "store_name": string,
@@ -25,7 +29,7 @@ SYSTEM = """Ты извлекаешь данные с фото или скана
       "quantity": number,
       "unit_price": number | null,
       "line_total": number,
-      "category_hint": string | null
+      "category": string
     }
   ]
 }
@@ -43,10 +47,30 @@ def parse_receipt_image(
     image_bytes: bytes,
     mime_type: str,
     model: str = "gpt-4o-mini",
+    category_names: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Parse receipt from image bytes (JPEG/PNG/WebP)."""
+    """Parse receipt from image bytes (JPEG/PNG/WebP).
+
+    category_names: допустимые категории расходов; для каждой строки чека модель вернёт поле
+    ``category`` с одним из этих названий (или ближайшим смысловым вариантом из списка).
+    """
     b64 = base64.standard_b64encode(image_bytes).decode("ascii")
     data_url = f"data:{mime_type};base64,{b64}"
+
+    if category_names:
+        cats_block = (
+            "Допустимые категории для поля category у каждой позиции (ровно как написано):\n"
+            + "\n".join(f"- {n}" for n in category_names)
+        )
+    else:
+        cats_block = (
+            "Категории: для каждой позиции укажи поле category — краткое русское название "
+            "типа расхода (продукты, бытовая химия, аптека и т.д.)."
+        )
+
+    user_text = (
+        "Извлеки структуру чека из изображения. Только валидный JSON.\n\n" + cats_block
+    )
 
     client = _client()
     resp = client.chat.completions.create(
@@ -58,7 +82,7 @@ def parse_receipt_image(
                 "content": [
                     {
                         "type": "text",
-                        "text": "Извлеки структуру чека из изображения. Только валидный JSON.",
+                        "text": user_text,
                     },
                     {"type": "image_url", "image_url": {"url": data_url}},
                 ],

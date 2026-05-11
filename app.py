@@ -145,7 +145,12 @@ with tab_scan:
         if pdf_ready and recognize:
             try:
                 with st.spinner("Запрос к OpenAI…"):
-                    parsed = parse_receipt_image(image_bytes, mime, model=model)
+                    parsed = parse_receipt_image(
+                        image_bytes,
+                        mime,
+                        model=model,
+                        category_names=[c["name"] for c in categories],
+                    )
                 st.session_state["scan_parsed"] = parsed
             except Exception as e:
                 st.error(str(e))
@@ -188,8 +193,8 @@ with tab_scan:
         lines_in = p.get("lines") or []
         rows = []
         for ln in lines_in:
-            hint = ln.get("category_hint")
-            cid = _resolve_category_id(hint, categories)
+            cat_raw = ln.get("category") or ln.get("category_hint")
+            cid = _resolve_category_id(cat_raw, categories)
             rows.append(
                 {
                     "product_name": ln.get("product_name") or "",
