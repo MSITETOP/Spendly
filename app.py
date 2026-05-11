@@ -74,6 +74,41 @@ st.set_page_config(
 db.init_db()
 
 
+def _normalize_code(s: str | None) -> str:
+    return (s or "").strip().lower()
+
+
+def _allowed_codes() -> set[str]:
+    # Базовое слово доступа "Kirill" доступно всегда.
+    allowed = {"kirill"}
+    for m in db.list_members():
+        allowed.add(_normalize_code(m.get("name")))
+    return allowed
+
+
+if not st.session_state.get("authenticated", False):
+    with st.sidebar:
+        st.title("Вход")
+        code_word = st.text_input(
+            "Введите кодовое слово",
+            type="password",
+            key="auth_code_word",
+        )
+
+        if st.button("Войти", type="primary", use_container_width=True):
+            norm = _normalize_code(code_word)
+            if norm and norm in _allowed_codes():
+                st.session_state["authenticated"] = True
+                st.session_state["auth_code"] = norm
+                st.rerun()
+            else:
+                st.error("Неверное кодовое слово.")
+
+        st.caption("Подходит имя из раздела \"Семья и категории\" или `Kirill`.")
+
+    st.stop()
+
+
 def sidebar_menu() -> str:
     with st.sidebar:
         st.title("Меню")
@@ -91,6 +126,17 @@ def sidebar_menu() -> str:
                 type="primary" if active else "secondary",
                 on_click=lambda o=opt: st.session_state.__setitem__("page", o),
             )
+
+        if st.button(
+            "Выйти",
+            key="logout_btn",
+            use_container_width=True,
+            type="tertiary",
+        ):
+            st.session_state.pop("authenticated", None)
+            st.session_state.pop("auth_code", None)
+            st.session_state.pop("auth_code_word", None)
+            st.rerun()
 
         return st.session_state.page
 
