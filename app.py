@@ -74,26 +74,28 @@ st.set_page_config(
 db.init_db()
 
 
-def sidebar_info() -> None:
+def sidebar_menu() -> str:
     with st.sidebar:
-        st.header("О приложении")
-        st.markdown(
-            "Локальная SQLite-база, Streamlit — без платной подписки на сервис. "
-            "Распознавание чеков использует API OpenAI (оплачивается по тарифу OpenAI)."
-        )
-        st.markdown(
-            "**Совместный бюджет:** добавьте членов семьи и при желании укажите "
-            "`SPENDLY_DB_PATH` на файл в общей папке (Syncthing, сетевой диск)."
-        )
-        p = db.db_path()
-        st.caption(f"База: `{p}`")
+        st.title("Меню")
+
+        options = ["Скан чека", "Ручной ввод", "Журнал", "Отчёты", "Семья и категории"]
+        if "page" not in st.session_state:
+            st.session_state.page = options[0]
+
+        for opt in options:
+            active = st.session_state.page == opt
+            st.button(
+                opt,
+                key=f"menu_{opt}",
+                use_container_width=True,
+                type="primary" if active else "secondary",
+                on_click=lambda o=opt: st.session_state.__setitem__("page", o),
+            )
+
+        return st.session_state.page
 
 
-sidebar_info()
-
-tab_scan, tab_manual, tab_journal, tab_reports, tab_settings = st.tabs(
-    ("Скан чека", "Ручной ввод", "Журнал", "Отчёты", "Семья и категории")
-)
+page = sidebar_menu()
 
 members = db.list_members()
 member_options = {m["name"]: m["id"] for m in members}
@@ -102,7 +104,7 @@ cat_options = {c["name"]: c["id"] for c in categories}
 cat_id_to_name = {c["id"]: c["name"] for c in categories}
 
 # ——— Скан чека ———
-with tab_scan:
+if page == "Скан чека":
     st.subheader("Загрузка чека и распознавание")
     up = st.file_uploader(
         "Фото чека или PDF (берётся первая страница)",
@@ -289,7 +291,7 @@ with tab_scan:
                     st.rerun()
 
 # ——— Ручной ввод ———
-with tab_manual:
+if page == "Ручной ввод":
     st.subheader("Новый чек вручную")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -398,7 +400,7 @@ with tab_manual:
                 st.rerun()
 
 # ——— Журнал ———
-with tab_journal:
+if page == "Журнал":
     st.subheader("Фильтры")
     j1, j2, j3, j4, j5 = st.columns(5)
     with j1:
@@ -456,7 +458,7 @@ with tab_journal:
                 st.rerun()
 
 # ——— Отчёты ———
-with tab_reports:
+if page == "Отчёты":
     st.subheader("Период и участник")
     r1, r2, r3 = st.columns(3)
     with r1:
@@ -490,7 +492,7 @@ with tab_reports:
     st.dataframe(df_p, hide_index=True, use_container_width=True)
 
 # ——— Настройки ———
-with tab_settings:
+if page == "Семья и категории":
     st.subheader("Члены семьи")
     new_m = st.text_input("Имя", key="new_m")
     if st.button("Добавить члена семьи"):
