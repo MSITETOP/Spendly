@@ -154,10 +154,42 @@ cat_id_to_name = {c["id"]: c["name"] for c in categories}
 # ——— Скан чека ———
 if page == "Скан чека":
     st.subheader("Загрузка чека и распознавание")
-    up = st.file_uploader(
-        "Фото чека или PDF (берётся первая страница)",
-        type=["png", "jpg", "jpeg", "webp", "pdf"],
+    scan_source = st.radio(
+        "Как добавить чек",
+        options=["Снять камерой", "Загрузить файл или PDF"],
+        horizontal=True,
     )
+    _prev_scan_mode = st.session_state.get("_receipt_scan_mode_prev")
+    if _prev_scan_mode != scan_source:
+        st.session_state["_receipt_scan_mode_prev"] = scan_source
+        if scan_source == "Снять камерой":
+            st.session_state["receipt_camera_enabled"] = False
+            st.session_state.pop("receipt_camera", None)
+
+    if scan_source == "Снять камерой":
+        if not st.session_state.get("receipt_camera_enabled", False):
+            st.caption(
+                "Камера выключена. Нажмите кнопку — браузер запросит доступ, затем появится превью."
+            )
+            if st.button("Включить камеру", type="primary", key="enable_receipt_cam"):
+                st.session_state["receipt_camera_enabled"] = True
+                st.rerun()
+            up = None
+        else:
+            up = st.camera_input(
+                "Сфотографируйте чек",
+                key="receipt_camera",
+                help="Нажмите кнопку снимка под превью, когда чек в кадре.",
+            )
+            if st.button("Выключить камеру", key="disable_receipt_cam"):
+                st.session_state["receipt_camera_enabled"] = False
+                st.session_state.pop("receipt_camera", None)
+                st.rerun()
+    else:
+        up = st.file_uploader(
+            "Фото чека или PDF (берётся первая страница)",
+            type=["png", "jpg", "jpeg", "webp", "pdf"],
+        )
     model = st.selectbox(
         "Модель OpenAI",
         options=["gpt-4o-mini", "gpt-4o"],
