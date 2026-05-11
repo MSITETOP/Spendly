@@ -9,9 +9,11 @@ from __future__ import annotations
 import os
 from datetime import date, datetime
 from pathlib import Path
+import json as pyjson
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 from spendly import db
@@ -205,7 +207,13 @@ if page == "Скан чека":
 
     if "scan_parsed" in st.session_state:
         p = st.session_state["scan_parsed"]
-        st.json(p)
+        js_json = pyjson.dumps(p, ensure_ascii=False)
+        # Чтобы не случайно закрыть тэг <script> при редких символах.
+        js_json = js_json.replace("</", "<\\/")
+        components.html(
+            f"<script>console.log('Spendly scan_parsed:', {js_json});</script>",
+            height=0,
+        )
         col1, col2 = st.columns(2)
         with col1:
             store = st.text_input("Магазин", value=p.get("store_name") or "")
