@@ -1,7 +1,7 @@
 """
 Spendly — семейный бюджет на Streamlit.
 Запуск из корня проекта: streamlit run app.py
-Переменные: OPENAI_API_KEY; опционально SPENDLY_DB_PATH для общей БД.
+Переменные: OPENAI_API_KEY; SPENDLY_AUTH_CODES; опционально SPENDLY_DB_PATH для общей БД.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def _hydrate_env_from_streamlit_secrets() -> None:
         sec = st.secrets
     except Exception:
         return
-    for key in ("OPENAI_API_KEY", "SPENDLY_DB_PATH"):
+    for key in ("OPENAI_API_KEY", "SPENDLY_DB_PATH", "SPENDLY_AUTH_CODES"):
         try:
             if key in sec:
                 os.environ.setdefault(key, str(sec[key]))
@@ -81,14 +81,13 @@ def _normalize_code(s: str | None) -> str:
 
 
 def _allowed_codes() -> set[str]:
-    # Базовое слово доступа "Kirill" доступно всегда.
-    allowed = {"kirill"}
-    for m in db.list_members():
-        allowed.add(_normalize_code(m.get("name")))
-    return allowed
+    raw = os.environ.get("SPENDLY_AUTH_CODES", "")
+    codes = {_normalize_code(code) for code in raw.split(",")}
+    return {code for code in codes if code}
 
 
 if not st.session_state.get("authenticated", False):
+    allowed_codes = _allowed_codes()
     with st.sidebar:
         st.title("Вход")
         code_word = st.text_input(
@@ -99,14 +98,16 @@ if not st.session_state.get("authenticated", False):
 
         if st.button("Войти", type="primary", use_container_width=True):
             norm = _normalize_code(code_word)
-            if norm and norm in _allowed_codes():
+            if norm and norm in allowed_codes:
                 st.session_state["authenticated"] = True
                 st.session_state["auth_code"] = norm
                 st.rerun()
             else:
                 st.error("Неверное кодовое слово.")
 
-        st.caption("Подходит имя из раздела \"Семья и категории\".")
+        st.caption("Доступные кодовые слова задаются в переменной SPENDLY_AUTH_CODES.")
+        if not allowed_codes:
+            st.warning("Не задана переменная SPENDLY_AUTH_CODES.")
 
     st.stop()
 
